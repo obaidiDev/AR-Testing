@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>بئر الفُقَير — تجربة الواقع المعزّز</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --parchment: #f3e4c3;
+    --gold: #c69648;
+    --gold-deep: #8a5a1f;
+    --dusk: #6b3a2a;
+    --stone: #4a3a2a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--parchment); color: var(--ink);
+    font-family: 'Amiri', serif; -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(circle at 20% 10%, rgba(198,150,72,0.18), transparent 45%),
+      radial-gradient(circle at 80% 90%, rgba(107,58,42,0.22), transparent 50%),
+      linear-gradient(180deg, #f6e9cb 0%, #e8d3a3 100%);
+    position: relative;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(26,18,8,0.08) 1px, transparent 0);
+    background-size: 3px 3px; pointer-events: none; opacity: 0.6; z-index: 1;
+  }
+
+  #intro {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem; z-index: 100;
+    transition: opacity 0.8s ease;
+  }
+  #intro.hidden { opacity: 0; pointer-events: none; }
+  .ornament {
+    font-family: 'Reem Kufi', sans-serif;
+    color: var(--gold-deep); font-size: 1.4rem;
+    letter-spacing: 0.4em; margin-bottom: 1rem; opacity: 0.75;
+  }
+  .ornament::before, .ornament::after { content: "۞"; margin: 0 0.8rem; color: var(--gold); }
+  h1 {
+    font-family: 'Reem Kufi', sans-serif; font-weight: 700;
+    font-size: clamp(2.2rem, 7vw, 4rem);
+    color: var(--ink); text-align: center; line-height: 1.2;
+    text-shadow: 0 2px 0 rgba(198,150,72,0.3);
+  }
+  h1 .sub {
+    display: block; font-size: 0.5em; color: var(--dusk);
+    margin-top: 0.3em; font-weight: 400; letter-spacing: 0.05em;
+  }
+  .divider {
+    width: min(320px, 70%); height: 24px; margin: 1.5rem 0;
+    background: linear-gradient(90deg, transparent, var(--gold) 20%, var(--gold-deep) 50%, var(--gold) 80%, transparent);
+    mask: radial-gradient(circle at center, black 0 2px, transparent 3px) 0 0 / 12px 24px,
+          linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+    -webkit-mask: radial-gradient(circle at center, black 0 2px, transparent 3px) 0 0 / 12px 24px,
+          linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+  }
+  .tagline {
+    font-size: clamp(1rem, 3vw, 1.3rem); color: var(--stone);
+    text-align: center; max-width: 36ch; line-height: 1.8; margin-bottom: 2.5rem;
+  }
+  .btn {
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 1.15rem; font-weight: 500;
+    padding: 1rem 1.8rem;
+    border: 2px solid var(--ink);
+    background: var(--ink); color: var(--parchment);
+    cursor: pointer; transition: all 0.25s ease;
+    letter-spacing: 0.05em; box-shadow: 4px 4px 0 var(--ink);
+    min-width: 280px;
+  }
+  .btn:hover, .btn:active {
+    background: var(--gold-deep);
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--gold-deep);
+  }
+  .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+  .status {
+    margin-top: 1.5rem; font-size: 0.85rem;
+    color: var(--stone); opacity: 0.75;
+    text-align: center; max-width: 40ch; line-height: 1.6;
+    min-height: 3em;
+  }
+  .status.error { color: #8a2020; opacity: 1; font-weight: 600; }
+  .status.ok { color: #2a6030; font-weight: 600; }
+
+  #scene-container { position: fixed; inset: 0; z-index: 2; }
+  #scene-container canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  #ar-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+
+  #placement-hint {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); color: white;
+    font-family: 'Reem Kufi', sans-serif; font-size: 1.15rem;
+    padding: 1.2rem 1.6rem;
+    background: rgba(0,0,0,0.6);
+    border-radius: 1rem; backdrop-filter: blur(8px);
+    z-index: 50; display: none; text-align: center;
+    border: 1px solid rgba(198,150,72,0.7);
+    max-width: 85%;
+  }
+  #placement-hint small { display: block; margin-top: 0.5rem; opacity: 0.8; font-size: 0.85em; }
+
+  /* "LOOK HERE" arrow indicator — 2D DOM, anchored to world positions */
+  .look-marker {
+    position: absolute;
+    width: 80px; height: 80px;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  .look-marker.show { display: block; }
+  .look-marker .ring {
+    position: absolute; inset: 0;
+    border: 3px solid var(--gold);
+    border-radius: 50%;
+    animation: pulse-ring 2s ease-out infinite;
+  }
+  .look-marker .ring:nth-child(2) { animation-delay: 0.7s; }
+  .look-marker .ring:nth-child(3) { animation-delay: 1.4s; }
+  .look-marker .label {
+    position: absolute;
+    top: 100%; left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0.5rem;
+    background: rgba(0,0,0,0.75);
+    color: var(--gold);
+    padding: 0.4rem 0.9rem;
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    border: 1px solid var(--gold);
+    backdrop-filter: blur(4px);
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.3); opacity: 0.9; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+
+  /* Off-screen directional arrow (when target is behind user) */
+  .edge-arrow {
+    position: absolute;
+    width: 60px; height: 60px;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    display: none;
+    color: var(--gold);
+  }
+  .edge-arrow.show { display: block; }
+  .edge-arrow svg {
+    width: 100%; height: 100%;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+    animation: arrow-bounce 1.2s ease-in-out infinite;
+  }
+  @keyframes arrow-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  #ui-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 40;
+    display: none; flex-direction: column; justify-content: space-between;
+  }
+  #ui-overlay.active { display: flex; }
+
+  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; padding: 1.2rem; }
+  .chapter-badge {
+    background: rgba(26,18,8,0.85); color: var(--parchment);
+    padding: 0.5rem 1rem;
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    backdrop-filter: blur(8px); border: 1px solid var(--gold);
+    pointer-events: auto;
+  }
+  .icon-btn {
+    background: rgba(26,18,8,0.85); color: var(--parchment);
+    border: 1px solid var(--gold);
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    cursor: pointer; backdrop-filter: blur(8px);
+    font-size: 1.2rem; transition: background 0.2s;
+    pointer-events: auto;
+  }
+  .icon-btn:hover { background: var(--gold-deep); }
+  .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+  .btn-row { display: flex; gap: 0.5rem; }
+
+  .bottom-panel {
+    background: linear-gradient(to top, rgba(26,18,8,0.92) 60%, rgba(26,18,8,0));
+    padding: 3rem 1.2rem 1.5rem;
+    pointer-events: auto;
+  }
+  #speaker-label {
+    text-align: center; color: var(--gold);
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 0.85rem; letter-spacing: 0.15em;
+    margin-bottom: 0.4rem; min-height: 1.2em;
+  }
+  #narration-text {
+    color: var(--parchment);
+    font-family: 'Amiri', serif;
+    font-size: clamp(1rem, 3.2vw, 1.25rem);
+    line-height: 1.9; text-align: center;
+    max-width: 600px; margin: 0 auto 1rem;
+    min-height: 4em;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  }
+  .progress-track { max-width: 600px; margin: 0 auto; display: flex; gap: 4px; }
+  .progress-seg {
+    flex: 1; height: 3px;
+    background: rgba(243,228,195,0.25);
+    overflow: hidden; position: relative;
+  }
+  .progress-seg::after {
+    content: ""; position: absolute; inset: 0;
+    background: var(--gold);
+    transform: scaleX(0); transform-origin: right;
+    transition: transform 0.25s ease;
+  }
+  .progress-seg.done::after { transform: scaleX(1); }
+  .progress-seg.active::after { transform: scaleX(var(--p, 0)); }
+  .controls-row {
+    display: flex; justify-content: center; align-items: center;
+    gap: 0.8rem; margin-top: 1rem;
+  }
+  .ctrl-btn {
+    background: transparent; color: var(--parchment);
+    border: 1px solid var(--gold);
+    padding: 0.5rem 1rem;
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: 0.9rem; cursor: pointer;
+    transition: all 0.2s; min-width: 80px;
+  }
+  .ctrl-btn:hover { background: var(--gold-deep); }
+  .ctrl-btn.play {
+    background: var(--gold); color: var(--ink);
+    border-color: var(--gold); font-weight: 600;
+  }
+
+  #end-card {
+    position: fixed; inset: 0;
+    background: rgba(26,18,8,0.92); color: var(--parchment);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem; z-index: 200;
+    text-align: center; backdrop-filter: blur(10px);
+  }
+  #end-card.show { display: flex; }
+  #end-card h2 {
+    font-family: 'Reem Kufi', sans-serif;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    color: var(--gold); margin-bottom: 1rem;
+  }
+  #end-card p { max-width: 40ch; line-height: 1.9; font-size: 1.05rem; margin-bottom: 2rem; }
+</style>
+</head>
+<body>
+
+<div id="intro">
+  <div class="ornament">قصة</div>
+  <h1>
+    بِئْر الفُقَيْر
+    <span class="sub">حكاية عتق سلمان الفارسي — رضي الله عنه</span>
+  </h1>
+  <div class="divider"></div>
+  <p class="tagline">
+    تجربةٌ بالواقع المعزّز: انتقل إلى بئر الفُقَير في حيّ العوالي،
+    ودع القصّة تظهر من حولك.
+  </p>
+  <button class="btn" id="btn-ar"><span>◈</span> ابدأ تجربة الواقع المعزّز</button>
+  <p class="status" id="intro-status">جاري التحقق من دعم AR...</p>
+</div>
+
+<div id="scene-container"></div>
+
+<div id="ar-overlay">
+  <div id="placement-hint">
+    وجّه الكاميرا نحو البئر أو أحد النخيل، ثم انقر لتثبيت المشهد
+    <small>الخاتم الذهبي يظهر حين تجد الأرض</small>
+  </div>
+
+  <div class="look-marker" id="look-marker">
+    <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+    <div class="label" id="look-label">انظر هنا</div>
+  </div>
+
+  <div class="edge-arrow" id="edge-arrow">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2 L22 12 L16 12 L16 22 L8 22 L8 12 L2 12 Z"/>
+    </svg>
+  </div>
+
+  <div id="ui-overlay">
+    <div class="top-bar">
+      <div class="chapter-badge" id="chapter-label">الفصل ١</div>
+      <div class="btn-row">
+        <button class="icon-btn" id="btn-mute" title="كتم">
+          <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8.03v7.94A4.5 4.5 0 0 0 16.5 12z"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-exit" title="خروج">✕</button>
+      </div>
+    </div>
+    <div class="bottom-panel">
+      <div id="speaker-label">&nbsp;</div>
+      <p id="narration-text">&nbsp;</p>
+      <div class="progress-track" id="progress-track"></div>
+      <div class="controls-row">
+        <button class="ctrl-btn" id="btn-prev">◁ السابق</button>
+        <button class="ctrl-btn play" id="btn-play">تشغيل ▷</button>
+        <button class="ctrl-btn" id="btn-next">التالي ▷</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="end-card">
+  <div class="ornament">تمّت</div>
+  <h2>ولا تزال بئر الفُقَير شاهدة</h2>
+  <p>على واقعة عتق سلمان الفارسي —رضي الله عنه— وعلى فضل النبيّ ﷺ وصحابته.</p>
+  <button class="btn" id="btn-replay">إعادة القصة</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ======================== STORY ========================
+// Each beat: speaker, text, which anchor to point at, which character appears
+// anchor: 'well' | 'ground' | 'sky' | 'palms' | null
+// character: 'salman' | 'master' | 'companion' | 'light' | null  (one at a time)
+// characterPos: offset from anchor point
+const beats = [
+  { chapterLabel:'الفصل ١ · رحلة البحث', speaker:'narrator', speakerLabel:'الراوي',
+    text:'في شبابه، فارق سلمانُ بلادَه فارس باحثاً عن الدين الحق. مرّ بعلماء النصارى، فأخبروه بقرب ظهور نبيٍّ في جزيرة العرب.',
+    lookAt:null, lookLabel:null,
+    character:'salman', characterPos:'center' },
+
+  { chapterLabel:'الفصل ٢ · في مزرعة قُرَيظة', speaker:'narrator', speakerLabel:'الراوي',
+    text:'انتهى به المطافُ عبداً في بساتين المدينة، يسقي النخلَ ويرجو فرجَ ربّه.',
+    lookAt:'well', lookLabel:'البئر',
+    character:'salman', characterPos:'near-anchor' },
+
+  { chapterLabel:'الفصل ٢ · في مزرعة قُرَيظة', speaker:'master', speakerLabel:'سيّد سلمان',
+    text:'إن أردتَ الحريّة، فعليك أربعون أوقيةً من الذهب، وثلاثُ مئة نخلةٍ تُغرَس وتُثمِر.',
+    lookAt:null, lookLabel:null,
+    character:'master', characterPos:'center' },
+
+  { chapterLabel:'الفصل ٢ · في مزرعة قُرَيظة', speaker:'salman', speakerLabel:'سلمان الفارسي',
+    text:'وكيف لي بهذا يا سيّدي؟ إنّي عبدٌ لا أملك من أمري شيئاً.',
+    lookAt:null, lookLabel:null,
+    character:'salman', characterPos:'center' },
+
+  { chapterLabel:'الفصل ٣ · قدومُ النبي ﷺ', speaker:'narrator', speakerLabel:'الراوي',
+    text:'فلمّا قدم النبيُّ ﷺ إلى المدينة مهاجراً، عرف سلمانُ علاماتِ النبوّة، فأسلم.',
+    lookAt:'sky', lookLabel:'نورُ النبوّة',
+    character:'light', characterPos:'sky' },
+
+  { chapterLabel:'الفصل ٣ · قدومُ النبي ﷺ', speaker:'narrator', speakerLabel:'عن النبي ﷺ',
+    text:'فقال له النبيُّ ﷺ: كاتِبْ سيّدك على نفسك.',
+    lookAt:null, lookLabel:null,
+    character:'light', characterPos:'center' },
+
+  { chapterLabel:'الفصل ٤ · الغَرْس المبارك', speaker:'salman', speakerLabel:'سلمان الفارسي',
+    text:'ثلاثُ مئة نخلةٍ يا رسول الله، كيف لي بها؟',
+    lookAt:null, lookLabel:null,
+    character:'salman', characterPos:'center' },
+
+  { chapterLabel:'الفصل ٤ · الغَرْس المبارك', speaker:'companion', speakerLabel:'أحد الصحابة',
+    text:'أعينوا أخاكم! هذا غرسٌ مني، وهذا منّا، حتى تبلغ الثلاثَ مئة.',
+    lookAt:'palms', lookLabel:'النخيل',
+    character:'companion', characterPos:'near-anchor' },
+
+  { chapterLabel:'الفصل ٤ · الغَرْس المبارك', speaker:'narrator', speakerLabel:'عن النبي ﷺ',
+    text:'ثم قال النبيُّ ﷺ: فَقِّروا لها — أي احفروا لها — ثم غَرَسها بيديه الشريفتين.',
+    lookAt:'ground', lookLabel:'موضع الغرس',
+    character:'light', characterPos:'near-anchor' },
+
+  { chapterLabel:'الفصل ٥ · ثمرةُ البركة', speaker:'narrator', speakerLabel:'الراوي',
+    text:'وأعطى النبيُّ ﷺ سلمانَ قطعةً من الذهب مثلَ بيضةِ الدجاج، فوزن منها لسيّده أربعين أوقيّة.',
+    lookAt:null, lookLabel:null,
+    character:'salman', characterPos:'center' },
+
+  { chapterLabel:'الفصل ٥ · ثمرةُ البركة', speaker:'narrator', speakerLabel:'الراوي',
+    text:'فأثمرت النخلاتُ كلُّها في عامها بإذن الله، ونال سلمانُ حريّتَه. ولا تزال بئرُ الفُقَير شاهدةً حتى اليوم.',
+    lookAt:'well', lookLabel:'بئر الفُقَير',
+    character:'salman', characterPos:'near-anchor' },
+];
+
+// ======================== STATE ========================
+let renderer, scene, camera;
+let reticle = null, hitTestSource = null;
+let placed = false, isAR = false;
+let anchorPoint = new THREE.Vector3(); // where user tapped
+let currentBeat = 0;
+let synthUtter = null, isPlaying = false, muted = false;
+let clock = new THREE.Clock();
+
+let characters = {}; // salman, master, companion, light
+let currentCharacterTag = null;
+
+// Ambient AR effects
+let particleSystem = null;
+let auraGroup = null; // holds glowing rings at the anchor
+let rayGroup = null;  // shafts of light from sky anchor
+
+// ======================== AR STARTUP ========================
+async function checkARSupport() {
+  const statusEl = document.getElementById('intro-status');
+  const arBtn = document.getElementById('btn-ar');
+  if (!window.isSecureContext) {
+    statusEl.classList.add('error');
+    statusEl.textContent = 'WebXR يتطلّب HTTPS أو localhost.';
+    arBtn.disabled = true; return;
+  }
+  if (!navigator.xr) {
+    statusEl.classList.add('error');
+    statusEl.textContent = 'متصفحك لا يدعم WebXR. استخدم Chrome على Android.';
+    arBtn.disabled = true; return;
+  }
+  try {
+    const supported = await navigator.xr.isSessionSupported('immersive-ar');
+    if (supported) { statusEl.classList.add('ok'); statusEl.textContent = 'جهازك يدعم الواقع المعزّز ✓'; }
+    else { statusEl.textContent = 'الواقع المعزّز غير مدعوم على هذا المتصفح.'; arBtn.disabled = true; }
+  } catch (e) {
+    statusEl.classList.add('error');
+    statusEl.textContent = 'خطأ: ' + e.message;
+    arBtn.disabled = true;
+  }
+}
+
+async function startAR() {
+  const statusEl = document.getElementById('intro-status');
+  const overlayRoot = document.getElementById('ar-overlay');
+
+  const configs = [
+    { init: { requiredFeatures: ['hit-test', 'local-floor'], optionalFeatures: ['dom-overlay', 'light-estimation'], domOverlay: { root: overlayRoot } }, refSpace: 'local-floor' },
+    { init: { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay', 'local-floor', 'light-estimation'], domOverlay: { root: overlayRoot } }, refSpace: 'local' },
+    { init: { requiredFeatures: ['hit-test'] }, refSpace: 'local' },
+  ];
+
+  let session = null, used = null, lastError = null;
+  for (const c of configs) {
+    try { session = await navigator.xr.requestSession('immersive-ar', c.init); used = c; break; }
+    catch (e) { lastError = e; }
+  }
+  if (!session) {
+    statusEl.classList.add('error');
+    statusEl.textContent = 'تعذّر بدء AR: ' + (lastError?.message || 'غير معروف');
+    return;
+  }
+
+  renderer.xr.setReferenceSpaceType(used.refSpace);
+  await renderer.xr.setSession(session);
+
+  isAR = true;
+  document.getElementById('intro').classList.add('hidden');
+  document.getElementById('placement-hint').style.display = 'block';
+
+  try {
+    const viewerSpace = await session.requestReferenceSpace('viewer');
+    if (session.requestHitTestSource) {
+      hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+    }
+  } catch (e) { console.warn('hit-test unavailable:', e); }
+
+  session.addEventListener('select', onPlaceAnchor);
+  session.addEventListener('end', () => {
+    isAR = false; placed = false; hitTestSource = null;
+    document.getElementById('intro').classList.remove('hidden');
+    document.getElementById('ui-overlay').classList.remove('active');
+    document.getElementById('placement-hint').style.display = 'none';
+  });
+}
+
+function onPlaceAnchor() {
+  if (placed) return;
+  if (reticle.visible) {
+    anchorPoint.setFromMatrixPosition(reticle.matrix);
+  } else {
+    // Fallback: place 1.5m in front of camera
+    const xrCam = renderer.xr.getCamera();
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(xrCam.quaternion);
+    anchorPoint.copy(xrCam.position).add(forward.multiplyScalar(1.5));
+    anchorPoint.y = Math.min(anchorPoint.y, xrCam.position.y - 0.5);
+  }
+  placed = true;
+  reticle.visible = false;
+  document.getElementById('placement-hint').style.display = 'none';
+
+  // Position anchor-bound effects
+  if (auraGroup) auraGroup.position.copy(anchorPoint);
+  if (particleSystem) particleSystem.position.copy(anchorPoint);
+
+  showStoryUI();
+}
+
+// ======================== INIT SCENE ========================
+function initScene() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
+
+  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.getElementById('scene-container').appendChild(renderer.domElement);
+
+  // Ambient soft fill — keeps characters visible in any lighting
+  scene.add(new THREE.HemisphereLight(0xffeecc, 0x303040, 0.7));
+  const keyLight = new THREE.DirectionalLight(0xfff2d8, 1.0);
+  keyLight.position.set(2, 4, 2);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.camera.near = 0.1;
+  keyLight.shadow.camera.far = 10;
+  scene.add(keyLight);
+
+  // Build characters (hidden initially)
+  characters.salman = buildHuman({ robe: 0x4a6b2a, belt: 0x3a4818, skin: 0xc99670, head: 0x2a1810, beard: 0x1a1008 });
+  characters.master = buildHuman({ robe: 0x6e2d20, belt: 0x4a1818, skin: 0xd8a878, head: 0x4a3420, beard: 0x3a2818 });
+  characters.companion = buildHuman({ robe: 0xd4c08a, belt: 0x8a6a3a, skin: 0xc89870, head: 0x2a1810, beard: 0x1a1008 });
+  characters.light = buildLightFigure();
+
+  Object.values(characters).forEach(c => {
+    c.visible = false;
+    c.scale.setScalar(0.001);
+    scene.add(c);
+  });
+
+  // Aura group — glowing rings at anchor
+  auraGroup = buildAura();
+  auraGroup.visible = false;
+  scene.add(auraGroup);
+
+  // Light rays (for sky anchor moments)
+  rayGroup = buildLightRays();
+  rayGroup.visible = false;
+  scene.add(rayGroup);
+
+  // Ambient golden particles around anchor
+  particleSystem = buildParticles();
+  particleSystem.visible = false;
+  scene.add(particleSystem);
+
+  // Reticle
+  const reticleGeom = new THREE.RingGeometry(0.09, 0.11, 32).rotateX(-Math.PI/2);
+  reticle = new THREE.Mesh(reticleGeom, new THREE.MeshBasicMaterial({ color: 0xc69648, transparent: true, opacity: 0.9 }));
+  reticle.matrixAutoUpdate = false;
+  reticle.visible = false;
+  scene.add(reticle);
+
+  window.addEventListener('resize', onResize);
+  renderer.setAnimationLoop(render);
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ======================== HUMAN CHARACTER ========================
+// Proportioned adult male figure in thobe + bisht, faceless head (sphere, no features),
+// with turban/ghutra. Real scale ~1.7m tall.
+function buildHuman(colors) {
+  const g = new THREE.Group();
+  const H = 1.7; // height in meters
+
+  const robeMat = new THREE.MeshStandardMaterial({
+    color: colors.robe, roughness: 0.85, metalness: 0.0, flatShading: false
+  });
+  const beltMat = new THREE.MeshStandardMaterial({
+    color: colors.belt, roughness: 0.7, metalness: 0.0
+  });
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: colors.skin, roughness: 0.8, metalness: 0.0
+  });
+  const headMat = new THREE.MeshStandardMaterial({
+    color: colors.head, roughness: 0.7, metalness: 0.0
+  });
+  const beardMat = new THREE.MeshStandardMaterial({
+    color: colors.beard, roughness: 0.9, metalness: 0.0
+  });
+
+  // ---- THOBE / ROBE body (long flowing garment) ----
+  // Tapered from shoulders to hem, with mid-robe belt cinch
+  const bodyGeom = makeBodyGeometry();
+  const body = new THREE.Mesh(bodyGeom, robeMat);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  // Belt / sash
+  const belt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.2, 0.06, 16),
+    beltMat
+  );
+  belt.position.y = H * 0.55;
+  belt.castShadow = true;
+  g.add(belt);
+
+  // ---- HEAD (faceless sphere, head-covering wraps around it) ----
+  const skullR = 0.11;
+  const skull = new THREE.Mesh(
+    new THREE.SphereGeometry(skullR, 24, 20),
+    skinMat
+  );
+  skull.position.y = H * 0.92;
+  skull.castShadow = true;
+  g.add(skull);
+
+  // Hair / beard cap (dark shadow at top of head — suggests hair without detail)
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(skullR * 1.02, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2.3),
+    headMat
+  );
+  hair.position.y = H * 0.92;
+  g.add(hair);
+
+  // Beard (dark fringe around lower half of head — traditional, no facial features)
+  const beardGeom = new THREE.SphereGeometry(skullR * 1.05, 24, 12, 0, Math.PI * 2, Math.PI * 0.55, Math.PI * 0.35);
+  const beard = new THREE.Mesh(beardGeom, beardMat);
+  beard.position.y = H * 0.92;
+  g.add(beard);
+
+  // ---- HEAD COVERING (ghutra / keffiyeh style) ----
+  // Cloth draped over head — using a semi-sphere on top
+  const ghutraMat = new THREE.MeshStandardMaterial({
+    color: colors.robe === 0xd4c08a ? 0xefe0b0 : 0xefe0b0, // always lighter head cloth
+    roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide
+  });
+  const ghutra = new THREE.Mesh(
+    new THREE.SphereGeometry(skullR * 1.18, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.52),
+    ghutraMat
+  );
+  ghutra.position.y = H * 0.92 + 0.005;
+  ghutra.castShadow = true;
+  g.add(ghutra);
+
+  // Cloth draping down sides + back of head
+  const drape = new THREE.Mesh(
+    new THREE.CylinderGeometry(skullR * 1.15, skullR * 1.3, 0.18, 16, 1, true, -Math.PI * 0.3, Math.PI * 1.6),
+    ghutraMat
+  );
+  drape.position.y = H * 0.85;
+  drape.castShadow = true;
+  g.add(drape);
+
+  // Igal (black rope that holds ghutra) — dark torus
+  const igal = new THREE.Mesh(
+    new THREE.TorusGeometry(skullR * 1.05, 0.012, 8, 24),
+    new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.6, metalness: 0.1 })
+  );
+  igal.rotation.x = Math.PI / 2;
+  igal.position.y = H * 1.01;
+  g.add(igal);
+
+  // ---- ARMS (hidden inside robe — only hands poke out) ----
+  // Upper arm suggested by robe; we add hands at the sides
+  const handR = 0.05;
+  const leftHand = new THREE.Mesh(new THREE.SphereGeometry(handR, 12, 10), skinMat);
+  leftHand.position.set(-0.22, H * 0.48, 0.04);
+  leftHand.castShadow = true;
+  leftHand.userData.baseY = H * 0.48;
+  leftHand.userData.baseX = -0.22;
+  g.add(leftHand);
+
+  const rightHand = new THREE.Mesh(new THREE.SphereGeometry(handR, 12, 10), skinMat);
+  rightHand.position.set(0.22, H * 0.48, 0.04);
+  rightHand.castShadow = true;
+  rightHand.userData.baseY = H * 0.48;
+  rightHand.userData.baseX = 0.22;
+  g.add(rightHand);
+
+  // Sleeve hints — small cylinders at wrists for depth
+  const sleeveMat = new THREE.MeshStandardMaterial({ color: colors.robe, roughness: 0.85 });
+  const leftSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.08, 10), sleeveMat);
+  leftSleeve.position.set(-0.22, H * 0.52, 0.02);
+  g.add(leftSleeve);
+  const rightSleeve = leftSleeve.clone();
+  rightSleeve.position.x = 0.22;
+  g.add(rightSleeve);
+
+  // ---- SHADOW RECEIVER (invisible ground disc to catch shadow) ----
+  const shadowCatcher = new THREE.Mesh(
+    new THREE.CircleGeometry(0.8, 32),
+    new THREE.ShadowMaterial({ opacity: 0.4 })
+  );
+  shadowCatcher.rotation.x = -Math.PI / 2;
+  shadowCatcher.position.y = 0.001;
+  shadowCatcher.receiveShadow = true;
+  g.add(shadowCatcher);
+
+  // Store refs for animation
+  g.userData.head = skull;
+  g.userData.headBaseY = H * 0.92;
+  g.userData.ghutra = ghutra;
+  g.userData.drape = drape;
+  g.userData.hair = hair;
+  g.userData.beard = beard;
+  g.userData.igal = igal;
+  g.userData.leftHand = leftHand;
+  g.userData.rightHand = rightHand;
+  g.userData.H = H;
+  return g;
+}
+
+// Build the robe body with proper proportions using LatheGeometry
+function makeBodyGeometry() {
+  const H = 1.7;
+  // Profile points: [radius, y]
+  const points = [];
+  points.push(new THREE.Vector2(0.0, 0));
+  points.push(new THREE.Vector2(0.28, 0));      // hem
+  points.push(new THREE.Vector2(0.26, H * 0.05));
+  points.push(new THREE.Vector2(0.24, H * 0.15));
+  points.push(new THREE.Vector2(0.22, H * 0.30));
+  points.push(new THREE.Vector2(0.20, H * 0.45));
+  points.push(new THREE.Vector2(0.18, H * 0.55)); // belt
+  points.push(new THREE.Vector2(0.19, H * 0.60));
+  points.push(new THREE.Vector2(0.21, H * 0.68)); // chest
+  points.push(new THREE.Vector2(0.20, H * 0.75));
+  points.push(new THREE.Vector2(0.17, H * 0.82)); // shoulders start narrowing
+  points.push(new THREE.Vector2(0.14, H * 0.85));
+  points.push(new THREE.Vector2(0.09, H * 0.87)); // neck
+  points.push(new THREE.Vector2(0.07, H * 0.88));
+  const lathe = new THREE.LatheGeometry(points, 32);
+  lathe.computeVertexNormals();
+  return lathe;
+}
+
+// ======================== LIGHT FIGURE (Prophet ﷺ) ========================
+function buildLightFigure() {
+  const g = new THREE.Group();
+
+  // Multiple soft aura shells
+  const auras = [];
+  for (let i = 0; i < 5; i++) {
+    const r = 0.15 + i * 0.08;
+    const aura = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 24, 20),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setHSL(0.14, 1, 0.75),
+        transparent: true,
+        opacity: 0.22 - i * 0.035,
+        side: THREE.BackSide,
+        depthWrite: false,
+      })
+    );
+    g.add(aura);
+    auras.push(aura);
+  }
+
+  // Bright core
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 24, 20),
+    new THREE.MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.95 })
+  );
+  g.add(core);
+
+  // Vertical column of light
+  const pillarGeom = new THREE.CylinderGeometry(0.08, 0.25, 2.5, 16, 1, true);
+  const pillarMat = new THREE.MeshBasicMaterial({
+    color: 0xfff4c0, transparent: true, opacity: 0.1,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const pillar = new THREE.Mesh(pillarGeom, pillarMat);
+  pillar.position.y = 1.25;
+  g.add(pillar);
+
+  // Actual light source
+  const pointLight = new THREE.PointLight(0xfff1b8, 1.5, 5, 1.5);
+  g.add(pointLight);
+
+  g.userData.core = core;
+  g.userData.auras = auras;
+  g.userData.pillar = pillar;
+  g.userData.light = pointLight;
+  return g;
+}
+
+// ======================== GLOWING AURA AT ANCHOR ========================
+function buildAura() {
+  const g = new THREE.Group();
+
+  // Horizontal ground rings
+  for (let i = 0; i < 3; i++) {
+    const r = 0.4 + i * 0.2;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(r, r + 0.04, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0xffc850, transparent: true, opacity: 0.5 - i * 0.12,
+        side: THREE.DoubleSide, depthWrite: false,
+      })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.005 + i * 0.002;
+    ring.userData.basePhase = i * 0.8;
+    g.add(ring);
+  }
+
+  // Vertical light dome (hemisphere shell)
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshBasicMaterial({
+      color: 0xffd888, transparent: true, opacity: 0.12,
+      side: THREE.BackSide, depthWrite: false,
+    })
+  );
+  g.add(dome);
+  g.userData.dome = dome;
+
+  return g;
+}
+
+function buildLightRays() {
+  const g = new THREE.Group();
+  // Several radiating shafts
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const rayGeom = new THREE.PlaneGeometry(0.15, 4);
+    const rayMat = new THREE.MeshBasicMaterial({
+      color: 0xfff1b8, transparent: true, opacity: 0.15,
+      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const ray = new THREE.Mesh(rayGeom, rayMat);
+    ray.rotation.z = angle;
+    ray.rotation.y = Math.random() * 0.3;
+    ray.position.y = 2;
+    g.add(ray);
+  }
+  return g;
+}
+
+function buildParticles() {
+  const count = 80;
+  const geom = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const velocities = [];
+  for (let i = 0; i < count; i++) {
+    const r = Math.random() * 0.7 + 0.3;
+    const theta = Math.random() * Math.PI * 2;
+    positions[i*3]   = Math.cos(theta) * r;
+    positions[i*3+1] = Math.random() * 1.5;
+    positions[i*3+2] = Math.sin(theta) * r;
+    velocities.push({
+      x: (Math.random()-0.5) * 0.05,
+      y: 0.08 + Math.random() * 0.05,
+      z: (Math.random()-0.5) * 0.05,
+    });
+  }
+  geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0xffd870, size: 0.025, transparent: true, opacity: 0.7,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const pts = new THREE.Points(geom, mat);
+  pts.userData.velocities = velocities;
+  return pts;
+}
+
+// ======================== ANCHOR POINTS ========================
+// Derives world positions for "well", "ground", "sky", "palms", "center" relative to the tapped anchor
+function getAnchorWorldPos(tag) {
+  const p = anchorPoint.clone();
+  switch (tag) {
+    case 'well':    return p; // exactly where user tapped
+    case 'ground':  return p.clone().add(new THREE.Vector3(0.8, 0, 0.3));
+    case 'palms':   return p.clone().add(new THREE.Vector3(-1.2, 0.8, -0.5));
+    case 'sky':     return p.clone().add(new THREE.Vector3(0, 2.5, -1));
+    default:        return p;
+  }
+}
+
+function getCharacterWorldPos(tag, beat) {
+  if (beat.characterPos === 'near-anchor' && beat.lookAt) {
+    const a = getAnchorWorldPos(beat.lookAt);
+    // Offset slightly so character stands beside the real object, not on it
+    return a.clone().add(new THREE.Vector3(0.4, 0, 0.4));
+  }
+  if (beat.characterPos === 'sky') {
+    return getAnchorWorldPos('sky');
+  }
+  // Default: face the user, 1.5m in front of anchor at eye level for proper framing
+  return anchorPoint.clone().add(new THREE.Vector3(0, 0, 0));
+}
+
+// ======================== BEAT TRANSITIONS ========================
+function applyBeat(beat) {
+  // Hide all characters
+  Object.values(characters).forEach(c => {
+    c.userData.targetVisible = false;
+    c.userData.speaking = false;
+  });
+
+  // Show current character
+  if (beat.character && characters[beat.character]) {
+    const ch = characters[beat.character];
+    ch.userData.targetVisible = true;
+    ch.userData.targetPos = getCharacterWorldPos(beat.character, beat);
+    // Mark speaking if character matches speaker
+    const speakerMap = { salman: 'salman', master: 'master', companion: 'companion' };
+    if (speakerMap[beat.speaker] === beat.character) ch.userData.speaking = true;
+    // Face the user
+    ch.userData.faceCamera = true;
+    currentCharacterTag = beat.character;
+  } else {
+    currentCharacterTag = null;
+  }
+
+  // Aura group: placed at current look-at target, or at anchor
+  const auraTarget = beat.lookAt ? getAnchorWorldPos(beat.lookAt) : anchorPoint;
+  auraGroup.userData.targetPos = auraTarget.clone();
+  auraGroup.userData.targetVisible = true;
+
+  // Rays only when pointing at sky
+  rayGroup.userData.targetVisible = (beat.lookAt === 'sky');
+  if (beat.lookAt === 'sky') rayGroup.userData.targetPos = auraTarget.clone();
+
+  // Particles always on once story starts
+  particleSystem.visible = true;
+
+  // Look marker for DOM overlay
+  if (beat.lookAt) {
+    currentLookWorldPos = getAnchorWorldPos(beat.lookAt);
+    currentLookLabel = beat.lookLabel || '';
+  } else {
+    currentLookWorldPos = null;
+  }
+}
+
+let currentLookWorldPos = null;
+let currentLookLabel = '';
+
+// ======================== RENDER ========================
+function render(_, frame) {
+  const dt = Math.min(0.05, clock.getDelta());
+
+  // Hit test for placement
+  if (frame && isAR && !placed && hitTestSource) {
+    const refSpace = renderer.xr.getReferenceSpace();
+    const results = frame.getHitTestResults(hitTestSource);
+    if (results.length) {
+      const pose = results[0].getPose(refSpace);
+      if (pose) {
+        reticle.visible = true;
+        reticle.matrix.fromArray(pose.transform.matrix);
+      }
+    } else reticle.visible = false;
+  }
+
+  // Get camera position in world space
+  const camWorldPos = new THREE.Vector3();
+  const camWorldQuat = new THREE.Quaternion();
+  if (isAR && renderer.xr.getCamera()) {
+    renderer.xr.getCamera().getWorldPosition(camWorldPos);
+    renderer.xr.getCamera().getWorldQuaternion(camWorldQuat);
+  } else {
+    camera.getWorldPosition(camWorldPos);
+    camera.getWorldQuaternion(camWorldQuat);
+  }
+
+  // Animate characters
+  Object.entries(characters).forEach(([tag, obj]) => {
+    const wantVis = obj.userData.targetVisible;
+    const targetS = wantVis ? 1 : 0.001;
+    const curS = obj.scale.x;
+    obj.scale.setScalar(curS + (targetS - curS) * Math.min(1, dt * 3));
+    obj.visible = obj.scale.x > 0.01;
+
+    if (wantVis && obj.userData.targetPos) {
+      obj.position.x += (obj.userData.targetPos.x - obj.position.x) * Math.min(1, dt * 3);
+      obj.position.y += (obj.userData.targetPos.y - obj.position.y) * Math.min(1, dt * 3);
+      obj.position.z += (obj.userData.targetPos.z - obj.position.z) * Math.min(1, dt * 3);
+    }
+
+    // Face camera on Y only (for human figures)
+    if (wantVis && obj.userData.faceCamera && obj.userData.H) {
+      const dx = camWorldPos.x - obj.position.x;
+      const dz = camWorldPos.z - obj.position.z;
+      const targetY = Math.atan2(dx, dz);
+      let d = targetY - obj.rotation.y;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      obj.rotation.y += d * Math.min(1, dt * 2);
+    }
+
+    // Speaking animation
+    if (obj.userData.speaking) {
+      if (obj.userData.head) {
+        obj.userData.head.position.y = obj.userData.headBaseY + Math.sin(performance.now() * 0.012) * 0.015;
+      }
+      // Hand gesture for emphasis — slight raise when speaking
+      if (obj.userData.rightHand) {
+        const base = obj.userData.rightHand.userData.baseY;
+        obj.userData.rightHand.position.y = base + 0.08 + Math.sin(performance.now() * 0.004) * 0.03;
+      }
+      if (tag === 'light' && obj.userData.core) {
+        obj.userData.core.scale.setScalar(1 + 0.2 * Math.sin(performance.now() * 0.006));
+        obj.userData.light.intensity = 1.5 + 0.5 * Math.sin(performance.now() * 0.006);
+      }
+    } else {
+      if (obj.userData.head) obj.userData.head.position.y = obj.userData.headBaseY;
+      if (obj.userData.rightHand) obj.userData.rightHand.position.y = obj.userData.rightHand.userData.baseY;
+      if (tag === 'light' && obj.userData.core) {
+        obj.userData.core.scale.setScalar(1 + 0.05 * Math.sin(performance.now() * 0.003));
+      }
+    }
+  });
+
+  // Aura group animation
+  if (auraGroup) {
+    const wantVis = auraGroup.userData.targetVisible;
+    const targetS = wantVis ? 1 : 0.001;
+    const curS = auraGroup.scale.x;
+    auraGroup.scale.setScalar(curS + (targetS - curS) * Math.min(1, dt * 3));
+    auraGroup.visible = auraGroup.scale.x > 0.01;
+    if (auraGroup.userData.targetPos) {
+      auraGroup.position.lerp(auraGroup.userData.targetPos, Math.min(1, dt * 4));
+    }
+    // Pulsing rings
+    auraGroup.children.forEach((child, i) => {
+      if (child.material && child.geometry && child.geometry.type === 'RingGeometry') {
+        const phase = child.userData.basePhase || 0;
+        const p = (performance.now() * 0.001 + phase) % 2;
+        child.scale.setScalar(0.6 + p * 0.6);
+        child.material.opacity = Math.max(0, (0.5 - i * 0.12) * (1 - p * 0.5));
+      }
+    });
+    if (auraGroup.userData.dome) {
+      auraGroup.userData.dome.material.opacity = 0.1 + 0.05 * Math.sin(performance.now() * 0.002);
+    }
+  }
+
+  // Light rays
+  if (rayGroup) {
+    const wantVis = rayGroup.userData.targetVisible;
+    const targetS = wantVis ? 1 : 0.001;
+    const curS = rayGroup.scale.x;
+    rayGroup.scale.setScalar(curS + (targetS - curS) * Math.min(1, dt * 2));
+    rayGroup.visible = rayGroup.scale.x > 0.01;
+    if (rayGroup.userData.targetPos) {
+      rayGroup.position.lerp(rayGroup.userData.targetPos, Math.min(1, dt * 3));
+    }
+    rayGroup.rotation.y += dt * 0.1;
+  }
+
+  // Particles
+  if (particleSystem && particleSystem.visible) {
+    const positions = particleSystem.geometry.attributes.position;
+    const vel = particleSystem.userData.velocities;
+    for (let i = 0; i < positions.count; i++) {
+      positions.array[i*3]   += vel[i].x * dt;
+      positions.array[i*3+1] += vel[i].y * dt;
+      positions.array[i*3+2] += vel[i].z * dt;
+      if (positions.array[i*3+1] > 2) {
+        const r = Math.random() * 0.7 + 0.3;
+        const th = Math.random() * Math.PI * 2;
+        positions.array[i*3]   = Math.cos(th) * r;
+        positions.array[i*3+1] = 0;
+        positions.array[i*3+2] = Math.sin(th) * r;
+      }
+    }
+    positions.needsUpdate = true;
+  }
+
+  // Update DOM "look here" marker projection
+  updateLookMarker(camWorldPos, camWorldQuat);
+
+  renderer.render(scene, camera);
+}
+
+// ======================== DOM LOOK MARKER ========================
+function updateLookMarker(camPos, camQuat) {
+  const marker = document.getElementById('look-marker');
+  const label = document.getElementById('look-label');
+  const edge = document.getElementById('edge-arrow');
+
+  if (!currentLookWorldPos || !placed || !isAR) {
+    marker.classList.remove('show');
+    edge.classList.remove('show');
+    return;
+  }
+
+  label.textContent = currentLookLabel || 'انظر هنا';
+
+  // Project world position to screen
+  const xrCam = renderer.xr.getCamera();
+  const target = currentLookWorldPos.clone().project(xrCam);
+
+  const w = window.innerWidth, h = window.innerHeight;
+
+  // Check if target is in front of camera (z between -1 and 1)
+  const inFront = target.z < 1 && target.z > -1;
+  const onScreen = inFront && target.x > -1 && target.x < 1 && target.y > -1 && target.y < 1;
+
+  if (onScreen) {
+    const x = (target.x + 1) * 0.5 * w;
+    const y = (-target.y + 1) * 0.5 * h;
+    marker.style.left = x + 'px';
+    marker.style.top = y + 'px';
+    marker.classList.add('show');
+    edge.classList.remove('show');
+  } else {
+    // Show edge arrow pointing toward target
+    marker.classList.remove('show');
+
+    // Compute direction from camera to target in world space
+    const dir = currentLookWorldPos.clone().sub(camPos);
+    // Transform to camera-local (so we can get a 2D angle for screen edge)
+    const invQuat = camQuat.clone().invert();
+    dir.applyQuaternion(invQuat);
+    // dir.x (right), dir.y (up), dir.z (-forward)
+    const angle = Math.atan2(dir.x, -dir.z); // yaw from camera
+    // Position on edge of screen
+    const cx = w / 2, cy = h / 2;
+    const radius = Math.min(w, h) * 0.38;
+    const ex = cx + Math.sin(angle) * radius;
+    const ey = cy - (dir.y > 0 ? 0.3 : -0.3) * radius; // slight vertical bias
+    edge.style.left = ex + 'px';
+    edge.style.top = ey + 'px';
+    edge.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
+    edge.classList.add('show');
+  }
+}
+
+// ======================== STORY UI ========================
+function showStoryUI() {
+  document.getElementById('ui-overlay').classList.add('active');
+  buildProgress();
+  setBeat(0);
+  setTimeout(() => playCurrent(), 500);
+}
+
+function buildProgress() {
+  const track = document.getElementById('progress-track');
+  track.innerHTML = '';
+  beats.forEach((_, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'progress-seg';
+    seg.id = 'seg-' + i;
+    track.appendChild(seg);
+  });
+}
+
+function setBeat(i) {
+  currentBeat = Math.max(0, Math.min(beats.length - 1, i));
+  const b = beats[currentBeat];
+  document.getElementById('chapter-label').textContent = b.chapterLabel;
+  document.getElementById('speaker-label').textContent = b.speakerLabel;
+  document.getElementById('narration-text').textContent = b.text;
+
+  applyBeat(b);
+
+  beats.forEach((_, idx) => {
+    const seg = document.getElementById('seg-' + idx);
+    if (!seg) return;
+    seg.classList.remove('done', 'active');
+    seg.style.removeProperty('--p');
+    if (idx < currentBeat) seg.classList.add('done');
+    if (idx === currentBeat) { seg.classList.add('active'); seg.style.setProperty('--p', '0'); }
+  });
+}
+
+const voiceProfiles = {
+  narrator:  { rate: 0.88, pitch: 1.0 },
+  salman:    { rate: 0.92, pitch: 1.05 },
+  master:    { rate: 0.85, pitch: 0.75 },
+  companion: { rate: 0.95, pitch: 1.15 },
+};
+
+function playCurrent() {
+  stopNarration();
+  const b = beats[currentBeat];
+  if (!('speechSynthesis' in window)) {
+    simulateProgress(Math.max(3500, b.text.length * 60));
+    return;
+  }
+  const utter = new SpeechSynthesisUtterance(b.text);
+  utter.lang = 'ar-SA';
+  const prof = voiceProfiles[b.speaker] || voiceProfiles.narrator;
+  utter.rate = prof.rate;
+  utter.pitch = prof.pitch;
+  utter.volume = muted ? 0 : 1;
+  const voices = speechSynthesis.getVoices();
+  const arVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ar'));
+  if (arVoice) utter.voice = arVoice;
+  utter.onstart = () => {
+    isPlaying = true; updatePlayBtn();
+    animateSegment(Math.max(2500, b.text.length * 65));
+  };
+  utter.onend = () => {
+    isPlaying = false; updatePlayBtn(); markSegDone();
+    if (currentBeat < beats.length - 1) {
+      setTimeout(() => { setBeat(currentBeat + 1); playCurrent(); }, 500);
+    } else setTimeout(showEndCard, 1200);
+  };
+  utter.onerror = () => { isPlaying = false; updatePlayBtn(); };
+  synthUtter = utter;
+  speechSynthesis.speak(utter);
+}
+
+let segTimer = null;
+function animateSegment(durationMs) {
+  const seg = document.getElementById('seg-' + currentBeat);
+  if (!seg) return;
+  const start = performance.now();
+  cancelAnimationFrame(segTimer);
+  function step() {
+    const el = performance.now() - start;
+    const p = Math.min(1, el / durationMs);
+    seg.style.setProperty('--p', p);
+    if (p < 1 && isPlaying) segTimer = requestAnimationFrame(step);
+  }
+  step();
+}
+
+function markSegDone() {
+  const seg = document.getElementById('seg-' + currentBeat);
+  if (seg) { seg.classList.add('done'); seg.style.setProperty('--p', '1'); }
+}
+
+function simulateProgress(durationMs) {
+  isPlaying = true; updatePlayBtn();
+  animateSegment(durationMs);
+  setTimeout(() => {
+    isPlaying = false; updatePlayBtn(); markSegDone();
+    if (currentBeat < beats.length - 1) { setBeat(currentBeat + 1); playCurrent(); }
+    else showEndCard();
+  }, durationMs);
+}
+
+function stopNarration() {
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  isPlaying = false; updatePlayBtn();
+  cancelAnimationFrame(segTimer);
+}
+
+function updatePlayBtn() {
+  document.getElementById('btn-play').textContent = isPlaying ? 'إيقاف ⏸' : 'تشغيل ▷';
+}
+
+function showEndCard() {
+  document.getElementById('end-card').classList.add('show');
+}
+
+// ======================== EVENTS ========================
+document.getElementById('btn-ar').addEventListener('click', startAR);
+document.getElementById('btn-exit').addEventListener('click', () => {
+  if (isAR && renderer.xr.getSession()) renderer.xr.getSession().end();
+});
+document.getElementById('btn-mute').addEventListener('click', () => {
+  muted = !muted;
+  const btn = document.getElementById('btn-mute');
+  btn.innerHTML = muted
+    ? '<svg viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.17v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8.03v7.94A4.5 4.5 0 0 0 16.5 12z"/></svg>';
+  if (isPlaying) { const p = currentBeat; stopNarration(); setBeat(p); playCurrent(); }
+});
+document.getElementById('btn-prev').addEventListener('click', () => {
+  stopNarration();
+  if (currentBeat > 0) setBeat(currentBeat - 1); else setBeat(0);
+  playCurrent();
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  stopNarration();
+  if (currentBeat < beats.length - 1) { setBeat(currentBeat + 1); playCurrent(); }
+  else showEndCard();
+});
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (isPlaying) stopNarration(); else playCurrent();
+});
+document.getElementById('btn-replay').addEventListener('click', () => {
+  document.getElementById('end-card').classList.remove('show');
+  setBeat(0);
+  playCurrent();
+});
+
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+}
+
+initScene();
+checkARSupport();
+</script>
+</body>
+</html>
